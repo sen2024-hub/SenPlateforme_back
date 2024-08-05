@@ -35,12 +35,12 @@ const handleError = (error, res) => {
 
 // Route d'enregistrement (signup)
 app.post('/signup', async (req, res) => {
-  const { username, password } = req.body;
+  const { nom, prenom,date_de_naissance,lieu_de_naissance,email,numero,photo,mot_de } = req.body;
   const id = uuidv4();
   const saltRounds = 10;
   const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-  const query = 'INSERT INTO utilisateur (id, username, password) VALUES ($1, $2, $3) RETURNING id';
+  const query = 'INSERT INTO utilisateur (id, nom,prenom,date_de_naissance,lieu_de_naissance, email,numero,photo,mot_de_passe,confirmation_du_mot_de_passe,create_at,update_at) VALUES ($1, $2, $3,$4, $5, $6,$7, $8, $9,$10, $11, $12) RETURNING id';
   const values = [id, username, hashedPassword];
 
   // try {
