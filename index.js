@@ -8,11 +8,7 @@ require('dotenv').config(); // Chargement des variables d'environnement
 const cors = require('cors');
 const app = express();
 app.use(express.json());
-app.use(cors({
-  origin: 'http://localhost:8080', // Allow requests from the Vue.js app
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allow these HTTP methods
-  allowedHeaders: ['Content-Type', 'Authorization'] // Allow these headers
-}));
+app.use(cors());
 
 
 // Connexion à la base de données
@@ -35,23 +31,15 @@ const handleError = (error, res) => {
 
 // Route d'enregistrement (signup)
 app.post('/signup', async (req, res) => {
-  const { nom, prenom,date_de_naissance,lieu_de_naissance,email,numero,photo,mot_de } = req.body;
+  const { nom, prenom,date_de_naissance,lieu_de_naissance,email,numero, password } = req.body;
   const id = uuidv4();
   const saltRounds = 10;
+  const create_at = new Date();
+  const update_at = new Date();
   const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-  const query = 'INSERT INTO utilisateur (id, nom,prenom,date_de_naissance,lieu_de_naissance, email,numero,photo,mot_de_passe,confirmation_du_mot_de_passe,create_at,update_at) VALUES ($1, $2, $3,$4, $5, $6,$7, $8, $9,$10, $11, $12) RETURNING id';
-  const values = [id, username, hashedPassword];
-
-  // try {
-  //   const dbConnection = getDbConnection();
-  //   await dbConnection.query(query, values);
-    
-    
-  //   res.status(201).json({ message: 'Utilisateur créé avec succès' });
-  // } catch (error) {
-  //   handleError(error, res);
-  // }
+  const query = 'INSERT INTO utilisateur (id, nom, prenom, date_de_naissance, lieu_de_naissance, email, numero, password, create_at, update_at) VALUES ($1, $2, $3,$4, $5, $6,$7, $8, $9, $10) RETURNING id';
+  const values = [id, nom,prenom,date_de_naissance,lieu_de_naissance, email,numero, hashedPassword,create_at,update_at];
   try {
     const dbConnection = getDbConnection();
     const { rows } = await dbConnection.query(query, values);
@@ -61,23 +49,48 @@ app.post('/signup', async (req, res) => {
   } catch (error) {
     handleError(error, res);
   }
-  consolelog(createdUserId)
+  
 });
+
+//envoie des commentaires
+app.post('/comment', async (req, res) => {
+  const { nom, prenom,email,objet, message} = req.body;
+  const id = uuidv4();
+  const saltRounds = 8;
+  const create_at = new Date();
+  const update_at = new Date();
+  // const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+  const query = 'INSERT INTO commentaire (id, nom, prenom,email, objet, message, create_at, update_at) VALUES ($1, $2, $3,$4, $5, $6,$7, $8) RETURNING id';
+  const values = [id, nom,prenom,email,objet,message,create_at,update_at];
+  try {
+    const dbConnection = getDbConnection();
+    const { rows } = await dbConnection.query(query, values);
+    const createdUserId = rows[0].id;
+    
+    res.status(201).json({ message: 'message envoyé avec succès', id,content });
+  } catch (error) {
+    handleError(error, res);
+  }
+  
+});
+
 
 // Route de connexion (login)
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
 
   try {
-    const query = 'SELECT * FROM utilisateur WHERE username = $1';
-    const result = await pool.query(query, [username]);
+    const query = 'SELECT * FROM utilisateur WHERE email = $1';
+    const { rows } = await pool.query(query, [email]);
 
-    if (result.rowCount === 1) {
-      const user = result.rows[0];
+    if (rows.length === 1) {
+      const user = rows[0];
+
       const isPasswordValid = await bcrypt.compare(password, user.password);
 
       if (isPasswordValid) {
-        const token = jwt.sign({ username },'77181753');
+        const token = jwt.sign({ userId: user.id }, '77181753');
         res.json({ token });
       } else {
         res.status(401).json({ message: 'Mot de passe incorrect' });
@@ -86,11 +99,9 @@ app.post('/login', async (req, res) => {
       res.status(404).json({ message: 'Utilisateur non trouvé' });
     }
   } catch (error) {
-    console.error('Erreur lors de la connexion :', error);
     handleError(error, res);
   }
 });
-
 // Route de commentaire (comment)
 app.post('/comment', authenticateToken, async (req, res) => {
   const { content } = req.body;
@@ -121,3 +132,4 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Le serveur est en cours d'exécution sur le port ${port}`);
 });
+//envoie des commentaires
