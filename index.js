@@ -52,6 +52,8 @@ app.post('/signup', async (req, res) => {
   
 });
 
+
+
 //envoie des commentaires
 app.post('/comment', async (req, res) => {
   const { nom, prenom,email,objet, message} = req.body;
@@ -68,14 +70,44 @@ app.post('/comment', async (req, res) => {
     const { rows } = await dbConnection.query(query, values);
     const createdUserId = rows[0].id;
     
-    res.status(201).json({ message: 'message envoyé avec succès', id,content });
+    res.status(201).json({ message: 'message envoyé avec succès', id});
   } catch (error) {
     handleError(error, res);
   }
   
 });
 
+app.get('/classe', async (req, res) => {
+  try {
+      const query = 'SELECT * FROM classe';
+      const result = await pool.query(query);
+      const type_fs = result.rows;
+      res.status(200).json(type_fs);
+  } catch (error) {
+      console.error('Erreur lors de la récupération des type  :', error);
+      res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
 
+//inscription aux formations
+app.post('/formation', async (req, res) => {
+   const { id_utilisateur, id_classe } = req.body;
+
+  const id = uuidv4(); // Générer un nouvel ID unique
+  const update_at = new Date();
+  const create_at = new Date();
+
+  const query = 'INSERT INTO inscription (id,id_utilisateur,id_classe, create_at, update_at) VALUES ($1, $2, $3, $4, $5)';
+  const values = [id,id_utilisateur,id_classe, create_at, update_at];
+
+  try {
+      await pool.query(query, values);
+      res.status(201).json({ message: 'inscription reussie' });
+  } catch (error) {
+      console.error('Erreur lors de l\ inscription :', error);
+      res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
 // Route de connexion (login)
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -91,7 +123,11 @@ app.post('/login', async (req, res) => {
 
       if (isPasswordValid) {
         const token = jwt.sign({ userId: user.id }, '77181753');
-        res.json({ token });
+        const userId = user.id;
+        console.log(userId);
+        
+
+        res.json({ token , userId});
       } else {
         res.status(401).json({ message: 'Mot de passe incorrect' });
       }
