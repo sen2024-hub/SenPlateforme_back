@@ -88,6 +88,41 @@ app.get('/classe', async (req, res) => {
       res.status(500).json({ message: 'Erreur interne du serveur' });
   }
 });
+//ajouter un etudiant
+app.post('/addnew', async (req, res) => {
+  const { nom, prenom,date_de_naissance,lieu_de_naissance,email,numero, password } = req.body;
+  const id = uuidv4();
+  const saltRounds = 10;
+  const create_at = new Date();
+  const update_at = new Date();
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+  const query = 'INSERT INTO utilisateur (id, nom, prenom, date_de_naissance, lieu_de_naissance, email, numero, password, create_at, update_at) VALUES ($1, $2, $3,$4, $5, $6,$7, $8, $9, $10) RETURNING id';
+  const values = [id, nom,prenom,date_de_naissance,lieu_de_naissance, email,numero, hashedPassword,create_at,update_at];
+  try {
+    const dbConnection = getDbConnection();
+    const { rows } = await dbConnection.query(query, values);
+    const createdUserId = rows[0].id;
+    
+    res.status(201).json({ message: 'Utilisateur créé avec succès',  createdUserId });
+  } catch (error) {
+    handleError(error, res);
+  }
+  
+});
+//afficher tous les utilisateurs
+app.get('/user', async (req, res) => {
+  try {
+      const query = 'SELECT nom,prenom,email,date_de_naissance,lieu_de_naissance,numero FROM utilisateur';
+      const result = await pool.query(query);
+      const type_fs = result.rows;
+      res.status(200).json(type_fs);
+  } catch (error) {
+      console.error('Erreur lors de la récupération des type  :', error);
+      res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
+
 
 //inscription aux formations
 app.post('/formation', async (req, res) => {
