@@ -113,7 +113,7 @@ app.post('/addnew', async (req, res) => {
 //afficher tous les utilisateurs
 app.get('/user', async (req, res) => {
   try {
-      const query = 'SELECT nom,prenom,email,date_de_naissance,lieu_de_naissance,numero FROM utilisateur';
+      const query = 'SELECT nom,prenom,email,date_de_naissance,lieu_de_naissance,numero,create_at,update_at FROM utilisateur';
       const result = await pool.query(query);
       const type_fs = result.rows;
       res.status(200).json(type_fs);
@@ -123,6 +123,29 @@ app.get('/user', async (req, res) => {
   }
 });
 
+
+//recuperation des donnees d'un utilisateur a partir de son email
+
+
+app.get('/users/:email', async (req, res) => {
+  try {
+    const email = req.params.email;
+    const query = {
+      text: 'SELECT * FROM utilisateur WHERE email = $1', // Requête modifiée
+      values: [email],
+    };
+    const result = await pool.query(query);
+
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]); // Renvoyer toutes les données de l'utilisateur
+    } else {
+      res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
 
 //inscription aux formations
 app.post('/formation', async (req, res) => {
