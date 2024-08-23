@@ -166,6 +166,43 @@ app.patch('/users/:email', async (req, res) => {
     res.status(500).json({ message: 'Erreur' });
   }
 });
+//suppression des utilisateurs dans la bd
+// Endpoint pour supprimer un utilisateur
+app.delete('/users/:email', async (req, res) => {
+  const userEmail = req.params.email;
+
+  try {
+    // Début de la transaction
+    const client = await pool.connect();
+    await client.query('BEGIN');
+
+    // Suppression de l'utilisateur
+    const result = await client.query(
+      'DELETE FROM utilisateur WHERE email = $1 RETURNING *',
+      [userEmail]
+    );
+
+    if (result.rowCount === 0) {
+      // Aucun utilisateur trouvé
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    const deletedUser = result.rows[0];
+
+    // Validation de la transaction
+    await client.query('COMMIT');
+
+    // Libération de la connexion
+    client.release();
+
+    // Réponse avec l'utilisateur supprimé
+    res.json({ message: 'Utilisateur supprimé'});
+  } catch (error) {
+    console.error('Erreur lors de la suppression de l\'utilisateur :', error);
+    return res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
 
 //inscription aux formations
 app.post('/formation', async (req, res) => {
