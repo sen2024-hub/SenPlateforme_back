@@ -146,6 +146,26 @@ app.get('/users/:email', async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });
+//recuperation et envoie des modifications dans la bd
+app.patch('/users/:email', async (req, res) => {
+  try {
+    const userId = req.params.email;
+    const { nom, prenom, email, date_de_naissance, lieu_de_naissance, numero } = req.body;
+    const query = 'UPDATE utilisateur SET nom = $1, prenom = $2,email = $3, date_de_naissance = $4, lieu_de_naissance = $5, numero = $6 WHERE email = $7 RETURNING *';
+    const values = [nom, prenom,email, date_de_naissance, lieu_de_naissance, numero, userId];
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'L/utilisateur n/est pas trouvé' });
+    }
+
+    res.status(200).json({ message: 'Modification reussi', data: result.rows[0] });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
 
 //inscription aux formations
 app.post('/formation', async (req, res) => {
