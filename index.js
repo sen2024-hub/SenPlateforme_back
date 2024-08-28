@@ -51,9 +51,65 @@ app.post('/signup', async (req, res) => {
   }
   
 });
+//inscription de l'administrateur
 
+app.post('/admin', async (req, res) => {
+  const { nom, prenom,email,numero, password } = req.body;
+  const id = uuidv4();
+  const saltRounds = 8;
+  const create_at = new Date();
+  const update_at = new Date();
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+  const query = 'INSERT INTO administrateur (id, nom, prenom, email, numero, mot_de_passe, create_at, update_at) VALUES ($1, $2, $3,$4, $5, $6,$7, $8) RETURNING id';
+  const values = [id, nom,prenom, email,numero, hashedPassword,create_at,update_at];
+  try {
+    const dbConnection = getDbConnection();
+    const { rows } = await dbConnection.query(query, values);
+    const createdUserId = rows[0].id;
+    
+    res.status(201).json({ message: 'Administrateur  créé avec succès',  createdUserId });
+  } catch (error) {
+    handleError(error, res);
+  }
+  
+});
+//connexion de l'administrateur
+app.post('/login_admin', async (req, res) => {
+  const { email, password } = req.body;
 
+  try {
+    const query = 'SELECT id, mot_de_passe FROM administrateur WHERE email = $1';
+    const { rows } = await pool.query(query, [email]);
+
+    if (rows.length === 1) {
+      const user = rows[0];
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+
+      if (isPasswordValid) {
+        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
+        res.json({ token, userId: user.id });
+      } else {
+        res.status(401).json({ message: 'Mot de passe incorrect' });
+      }
+    } else {
+      res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+//afficher toute les formations
+app.get('/formations', async (req, res) => {
+  try {
+    const query = 'SELECT nom, description, capacite, create_at, update_at FROM formations';
+    const { rows } = await pool.query(query);
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des formations :', error);
+    res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
 //envoie des commentaires
 app.post('/comment', async (req, res) => {
   const { nom, prenom,email,objet, message} = req.body;
@@ -76,7 +132,7 @@ app.post('/comment', async (req, res) => {
   }
   
 });
-
+//recuperation des classes
 app.get('/classe', async (req, res) => {
   try {
       const query = 'SELECT * FROM classe';
@@ -84,7 +140,7 @@ app.get('/classe', async (req, res) => {
       const type_fs = result.rows;
       res.status(200).json(type_fs);
   } catch (error) {
-      console.error('Erreur lors de la récupération des type  :', error);
+      console.error('Erreur lors de la récupération des classes  :', error);
       res.status(500).json({ message: 'Erreur interne du serveur' });
   }
 });
@@ -122,11 +178,7 @@ app.get('/user', async (req, res) => {
       res.status(500).json({ message: 'Erreur interne du serveur' });
   }
 });
-
-
 //recuperation des donnees d'un utilisateur a partir de son email
-
-
 app.get('/users/:email', async (req, res) => {
   try {
     const email = req.params.email;
@@ -146,24 +198,139 @@ app.get('/users/:email', async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });
+//recuperation et envoie des modifications dans la bd
+app.patch('/users/:email', async (req, res) => {
+  try {
+    const userId = req.params.email;
+    const { nom, prenom, email, date_de_naissance, lieu_de_naissance, numero } = req.body;
+    const query = 'UPDATE utilisateur SET nom = $1, prenom = $2,email = $3, date_de_naissance = $4, lieu_de_naissance = $5, numero = $6 WHERE email = $7 RETURNING *';
+    const values = [nom, prenom,email, date_de_naissance, lieu_de_naissance, numero, userId];
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'L/utilisateur n/est pas trouvé' });
+    }
+
+    res.status(200).json({ message: 'Modification reussi', data: result.rows[0] });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur' });
+  }
+});
+//suppression des utilisateurs dans la bd
+// Endpoint pour supprimer un utilisateur
+app.delete('/users/:email', async (req, res) => {
+  const userEmail = req.params.email;
+
+  try {
+    // Début de la transaction
+    const client = await pool.connect();
+    await client.query('BEGIN');
+
+    // Suppression de l'utilisateur
+    const result = await client.query(
+      'DELETE FROM utilisateur WHERE email = $1 RETURNING *',
+      [userEmail]
+    );
+
+    if (result.rowCount === 0) {
+      // Aucun utilisateur trouvé
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    const deletedUser = result.rows[0];
+
+    // Validation de la transaction
+    await client.query('COMMIT');
+
+    // Libération de la connexion
+    client.release();
+
+    // Réponse avec l'utilisateur supprimé
+    res.json({ message: 'Utilisateur supprimé'});
+  } catch (error) {
+    console.error('Erreur lors de la suppression de l\'utilisateur :', error);
+    return res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
 
 //inscription aux formations
 app.post('/formation', async (req, res) => {
-   const { id_utilisateur, id_classe } = req.body;
+  const { id_utilisateur, id_classe } = req.body;
+
+  // Vérification des valeurs
+  if (!id_utilisateur || !id_classe) {
+      return res.status(400).json({ message: 'ID utilisateur et ID classe requis' });
+  }
 
   const id = uuidv4(); // Générer un nouvel ID unique
   const update_at = new Date();
   const create_at = new Date();
 
-  const query = 'INSERT INTO inscription (id,id_utilisateur,id_classe, create_at, update_at) VALUES ($1, $2, $3, $4, $5)';
-  const values = [id,id_utilisateur,id_classe, create_at, update_at];
+  const query = 'INSERT INTO inscription (id, id_utilisateur, id_classe, create_at, update_at) VALUES ($1, $2, $3, $4, $5)';
+  const values = [id, id_utilisateur, id_classe, create_at, update_at];
 
   try {
       await pool.query(query, values);
-      res.status(201).json({ message: 'inscription reussie' });
+      res.status(201).json({ message: 'Inscription réussie' });
   } catch (error) {
-      console.error('Erreur lors de l\ inscription :', error);
+      console.error('Erreur lors de l\'inscription :', error);
       res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
+//recuperer et afficher les classes ou formations d'un etudiant en fonction de son id et de l'id de la classe
+app.get('/user/:id_utilisateur/classes', async (req, res) => {
+  const { id_utilisateur } = req.params;
+
+  console.log('ID Utilisateur:', id_utilisateur); // Log de l'ID utilisateur
+
+  try {
+      const result = await pool.query(
+          `SELECT id_classe 
+           FROM inscription 
+           WHERE id_utilisateur = $1`, 
+          [id_utilisateur]
+      );
+
+      console.log('Résultats:', result.rows); // Log des résultats de la requête
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: 'Aucune classe trouvée pour cet utilisateur.' });
+      }
+
+      res.json(result.rows); // Renvoie les IDs des classes
+  } catch (err) {
+      console.error(err);
+      res.status(500).send('Erreur serveur');
+  }
+});
+//reecuperer et afficher les classes ou formations d'un etudiant en fonction de son id et de l'id de la classe
+app.get('/user/:id_utilisateur', async (req, res) => {
+  const { id_utilisateur } = req.params;
+
+  console.log('ID Utilisateur:', id_utilisateur); // Log de l'ID utilisateur
+
+  try {
+      const result = await pool.query(
+          `SELECT c.id AS id_classe, c.libelle AS nom_classe 
+           FROM inscription i
+           JOIN classe c ON i.id_classe = c.id
+           WHERE i.id_utilisateur = $1`, 
+          [id_utilisateur]
+      );
+
+      console.log('Résultats:', result.rows); // Log des résultats de la requête
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: 'Aucune classe trouvée pour cet utilisateur.' });
+      }
+
+      res.json(result.rows); // Renvoie les IDs et noms des classes
+  } catch (err) {
+      console.error(err);
+      res.status(500).send('Erreur serveur');
   }
 });
 // Route de connexion (login)
@@ -195,6 +362,28 @@ app.post('/login', async (req, res) => {
   } catch (error) {
     handleError(error, res);
   }
+});
+//creation des formations
+app.post('/creer_formation', async (req, res) => {
+  const { nom,description,capacite } = req.body;
+  const id = uuidv4();
+  const saltRounds = 6;
+  const create_at = new Date();
+  const update_at = new Date();
+  // const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+  const query = 'INSERT INTO formations (id, nom,description,capacite ,create_at, update_at) VALUES ($1, $2, $3,$4, $5, $6) RETURNING id';
+  const values = [id, nom,description,capacite,create_at,update_at];
+  try {
+    const dbConnection = getDbConnection();
+    const { rows } = await dbConnection.query(query, values);
+    const createdUserId = rows[0].id;
+    
+    res.status(201).json({ message: 'classe  créé avec succès',  createdUserId });
+  } catch (error) {
+    handleError(error, res);
+  }
+  
 });
 // Route de commentaire (comment)
 app.post('/comment', authenticateToken, async (req, res) => {
