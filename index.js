@@ -132,7 +132,7 @@ app.post('/comment', async (req, res) => {
   }
   
 });
-
+//recuperation des classes
 app.get('/classe', async (req, res) => {
   try {
       const query = 'SELECT * FROM classe';
@@ -140,7 +140,7 @@ app.get('/classe', async (req, res) => {
       const type_fs = result.rows;
       res.status(200).json(type_fs);
   } catch (error) {
-      console.error('Erreur lors de la récupération des type  :', error);
+      console.error('Erreur lors de la récupération des classes  :', error);
       res.status(500).json({ message: 'Erreur interne du serveur' });
   }
 });
@@ -178,11 +178,7 @@ app.get('/user', async (req, res) => {
       res.status(500).json({ message: 'Erreur interne du serveur' });
   }
 });
-
-
 //recuperation des donnees d'un utilisateur a partir de son email
-
-
 app.get('/users/:email', async (req, res) => {
   try {
     const email = req.params.email;
@@ -262,21 +258,79 @@ app.delete('/users/:email', async (req, res) => {
 
 //inscription aux formations
 app.post('/formation', async (req, res) => {
-   const { id_utilisateur, id_classe } = req.body;
+  const { id_utilisateur, id_classe } = req.body;
+
+  // Vérification des valeurs
+  if (!id_utilisateur || !id_classe) {
+      return res.status(400).json({ message: 'ID utilisateur et ID classe requis' });
+  }
 
   const id = uuidv4(); // Générer un nouvel ID unique
   const update_at = new Date();
   const create_at = new Date();
 
-  const query = 'INSERT INTO inscription (id,id_utilisateur,id_classe, create_at, update_at) VALUES ($1, $2, $3, $4, $5)';
-  const values = [id,id_utilisateur,id_classe, create_at, update_at];
+  const query = 'INSERT INTO inscription (id, id_utilisateur, id_classe, create_at, update_at) VALUES ($1, $2, $3, $4, $5)';
+  const values = [id, id_utilisateur, id_classe, create_at, update_at];
 
   try {
       await pool.query(query, values);
-      res.status(201).json({ message: 'inscription reussie' });
+      res.status(201).json({ message: 'Inscription réussie' });
   } catch (error) {
-      console.error('Erreur lors de l\ inscription :', error);
+      console.error('Erreur lors de l\'inscription :', error);
       res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
+//recuperer et afficher les classes ou formations d'un etudiant en fonction de son id et de l'id de la classe
+app.get('/user/:id_utilisateur/classes', async (req, res) => {
+  const { id_utilisateur } = req.params;
+
+  console.log('ID Utilisateur:', id_utilisateur); // Log de l'ID utilisateur
+
+  try {
+      const result = await pool.query(
+          `SELECT id_classe 
+           FROM inscription 
+           WHERE id_utilisateur = $1`, 
+          [id_utilisateur]
+      );
+
+      console.log('Résultats:', result.rows); // Log des résultats de la requête
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: 'Aucune classe trouvée pour cet utilisateur.' });
+      }
+
+      res.json(result.rows); // Renvoie les IDs des classes
+  } catch (err) {
+      console.error(err);
+      res.status(500).send('Erreur serveur');
+  }
+});
+//reecuperer et afficher les classes ou formations d'un etudiant en fonction de son id et de l'id de la classe
+app.get('/user/:id_utilisateur', async (req, res) => {
+  const { id_utilisateur } = req.params;
+
+  console.log('ID Utilisateur:', id_utilisateur); // Log de l'ID utilisateur
+
+  try {
+      const result = await pool.query(
+          `SELECT c.id AS id_classe, c.libelle AS nom_classe 
+           FROM inscription i
+           JOIN classe c ON i.id_classe = c.id
+           WHERE i.id_utilisateur = $1`, 
+          [id_utilisateur]
+      );
+
+      console.log('Résultats:', result.rows); // Log des résultats de la requête
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: 'Aucune classe trouvée pour cet utilisateur.' });
+      }
+
+      res.json(result.rows); // Renvoie les IDs et noms des classes
+  } catch (err) {
+      console.error(err);
+      res.status(500).send('Erreur serveur');
   }
 });
 // Route de connexion (login)
