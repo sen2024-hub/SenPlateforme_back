@@ -51,9 +51,65 @@ app.post('/signup', async (req, res) => {
   }
   
 });
+//inscription de l'administrateur
 
+app.post('/admin', async (req, res) => {
+  const { nom, prenom,email,numero, password } = req.body;
+  const id = uuidv4();
+  const saltRounds = 8;
+  const create_at = new Date();
+  const update_at = new Date();
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+  const query = 'INSERT INTO administrateur (id, nom, prenom, email, numero, mot_de_passe, create_at, update_at) VALUES ($1, $2, $3,$4, $5, $6,$7, $8) RETURNING id';
+  const values = [id, nom,prenom, email,numero, hashedPassword,create_at,update_at];
+  try {
+    const dbConnection = getDbConnection();
+    const { rows } = await dbConnection.query(query, values);
+    const createdUserId = rows[0].id;
+    
+    res.status(201).json({ message: 'Administrateur  créé avec succès',  createdUserId });
+  } catch (error) {
+    handleError(error, res);
+  }
+  
+});
+//connexion de l'administrateur
+app.post('/login_admin', async (req, res) => {
+  const { email, password } = req.body;
 
+  try {
+    const query = 'SELECT id, mot_de_passe FROM administrateur WHERE email = $1';
+    const { rows } = await pool.query(query, [email]);
+
+    if (rows.length === 1) {
+      const user = rows[0];
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+
+      if (isPasswordValid) {
+        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
+        res.json({ token, userId: user.id });
+      } else {
+        res.status(401).json({ message: 'Mot de passe incorrect' });
+      }
+    } else {
+      res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+//afficher toute les formations
+app.get('/formations', async (req, res) => {
+  try {
+    const query = 'SELECT nom, description, capacite, create_at, update_at FROM formations';
+    const { rows } = await pool.query(query);
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des formations :', error);
+    res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
 //envoie des commentaires
 app.post('/comment', async (req, res) => {
   const { nom, prenom,email,objet, message} = req.body;
@@ -252,6 +308,28 @@ app.post('/login', async (req, res) => {
   } catch (error) {
     handleError(error, res);
   }
+});
+//creation des formations
+app.post('/creer_formation', async (req, res) => {
+  const { nom,description,capacite } = req.body;
+  const id = uuidv4();
+  const saltRounds = 6;
+  const create_at = new Date();
+  const update_at = new Date();
+  // const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+  const query = 'INSERT INTO formations (id, nom,description,capacite ,create_at, update_at) VALUES ($1, $2, $3,$4, $5, $6) RETURNING id';
+  const values = [id, nom,description,capacite,create_at,update_at];
+  try {
+    const dbConnection = getDbConnection();
+    const { rows } = await dbConnection.query(query, values);
+    const createdUserId = rows[0].id;
+    
+    res.status(201).json({ message: 'classe  créé avec succès',  createdUserId });
+  } catch (error) {
+    handleError(error, res);
+  }
+  
 });
 // Route de commentaire (comment)
 app.post('/comment', authenticateToken, async (req, res) => {
