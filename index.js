@@ -209,19 +209,29 @@ app.post('/formation', async (req, res) => {
       return res.status(400).json({ message: 'ID utilisateur et ID classe requis' });
   }
 
-  const id = uuidv4(); // Générer un nouvel ID unique
-  const update_at = new Date();
-  const create_at = new Date();
-
-  const query = 'INSERT INTO inscription (id, id_utilisateur, id_classe, create_at, update_at) VALUES ($1, $2, $3, $4, $5)';
-  const values = [id, id_utilisateur, id_classe, create_at, update_at];
+  const queryCheck = 'SELECT * FROM inscription WHERE id_utilisateur = $1 AND id_classe = $2';
+  const valuesCheck = [id_utilisateur, id_classe];
 
   try {
-      await pool.query(query, values);
-      res.status(201).json({ message: 'Inscription réussie' });
+      const result = await pool.query(queryCheck, valuesCheck);
+
+      // Vérifier si l'utilisateur est déjà inscrit
+      if (result.rows.length > 0) {
+          return res.status(409).json({ message: 'L\'utilisateur est déjà inscrit pour cette classe' });
+      }
+
+      const id = uuidv4(); // Générer un nouvel ID unique
+      const update_at = new Date();
+      const create_at = new Date();
+
+      const queryInsert = 'INSERT INTO inscription (id, id_utilisateur, id_classe, create_at, update_at) VALUES ($1, $2, $3, $4, $5)';
+      const valuesInsert = [id, id_utilisateur, id_classe, create_at, update_at];
+
+      await pool.query(queryInsert, valuesInsert);
+      res.status(201).json({ message: 'Inscription réussie', id });
   } catch (error) {
       console.error('Erreur lors de l\'inscription :', error);
-      res.status(500).json({ message: 'Erreur interne du serveur' });
+      res.status(500).json({ message: 'Erreur interne du serveur', error: error.message });
   }
 });
 //recuperer et afficher les classes ou formations d'un etudiant en fonction de son id et de l'id de la classe
@@ -272,6 +282,26 @@ app.get('/user/:id_utilisateur', async (req, res) => {
       }
 
       res.json(result.rows); // Renvoie les IDs et noms des classes
+  } catch (err) {
+      console.error(err);
+      res.status(500).send('Erreur serveur');
+  }
+});
+//recuperer le nom de l'etudiant et sa classe 
+app.get('/etudiants', async (req, res) => {
+  try {
+      const result = await pool.query(
+          `SELECT u.nom AS nom_etudiant, u.prenom AS prenom_etudiant, c.id AS id_classe, c.libelle AS nom_classe 
+           FROM inscription i
+           JOIN classe c ON i.id_classe = c.id
+           JOIN utilisateur u ON i.id_utilisateur = u.id`
+      );
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: 'Aucune inscription trouvée.' });
+      }
+
+      res.json(result.rows); // Renvoie les noms et prénoms des étudiants et les classes
   } catch (err) {
       console.error(err);
       res.status(500).send('Erreur serveur');
