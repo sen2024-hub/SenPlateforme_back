@@ -11,6 +11,7 @@ app.use(express.json());
 app.use(cors());
 
 
+
 // Connexion à la base de données
 const pool = new Pool({
   host: 'localhost',
@@ -52,7 +53,63 @@ app.post('/signup', async (req, res) => {
   
 });
 
+// Route d'enregistrement (signup) de l'administrateur
+app.post('/signupAdmin', async (req, res) => {
+  const { nom, prenom,email,numero, password } = req.body;
+  const id = uuidv4();
+  const saltRounds = 8;
+  const create_at = new Date();
+  const update_at = new Date();
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+  const query = 'INSERT INTO administrateur (id, nom, prenom, email, numero, mot_de_passe, create_at, update_at) VALUES ($1, $2, $3,$4, $5, $6,$7, $8) RETURNING id';
+  const values = [id, nom,prenom, email,numero, hashedPassword,create_at,update_at];
+  try {
+    const dbConnection = getDbConnection();
+    const { rows } = await dbConnection.query(query, values);
+    const createdUserId = rows[0].id;
+    
+    res.status(201).json({ message: 'Administrateur créé avec succès',  createdUserId });
+  } catch (error) {
+    handleError(error, res);
+  }
+  
+});
+// Route de connexion (login)
+app.post('/loginadmin', async (req, res) => {
+console.log('Requête reçue:', req.body); // Log des données reçues
+
+const { email, mot_de_passe } = req.body;
+
+try {
+const query = 'SELECT * FROM administrateur WHERE email = $1';
+const { rows } = await pool.query(query, [email]);
+
+if (rows.length === 1) {
+const user = rows[0];
+console.log('Utilisateur trouvé:', user); // Log l'utilisateur trouvé
+
+// Ajoutez des logs pour vérifier les valeurs
+console.log('Mot de passe reçu:', mot_de_passe);
+console.log('Mot de passe chiffré:', user.mot_de_passe);
+
+const isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
+console.log('Mot de passe valide:', isPasswordValid); // Log la validité du mot de passe
+
+if (isPasswordValid) {
+const token = jwt.sign({ userId: user.id }, '77181753');
+res.json({ token, userId: user.id });
+} else {
+res.status(401).json({ message: 'Mot de passe incorrect' });
+}
+} else {
+res.status(404).json({ message: 'Utilisateur non trouvé' });
+}
+} catch (error) {
+console.error('Erreur:', error);
+res.status(500).json({ message: 'Erreur interne du serveur' });
+}
+});
 
 //envoie des commentaires
 app.post('/comment', async (req, res) => {
