@@ -16,7 +16,7 @@ app.use(cors());
 const pool = new Pool({
   host: 'localhost',
   user: 'postgres',
-  password: 'frust900',
+  password: '771817',
   database: 'projet1',
   port: 5432
 });
@@ -378,12 +378,14 @@ app.post('/login', async (req, res) => {
       const isPasswordValid = await bcrypt.compare(password, user.password);
 
       if (isPasswordValid) {
-        const token = jwt.sign({ userId: user.id }, '77181753');
+        const token = jwt.sign({ userId: user.id, userName: user.nom }, '77181753');
         const userId = user.id;
+        const userName = user.nom;
         console.log(userId);
+        console.log(userName);
         
 
-        res.json({ token , userId});
+        res.json({ token, userId, userName});
       } else {
         res.status(401).json({ message: 'Mot de passe incorrect' });
       }
