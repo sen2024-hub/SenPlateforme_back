@@ -170,7 +170,7 @@ app.post('/addnew', async (req, res) => {
 //afficher tous les utilisateurs
 app.get('/user', async (req, res) => {
   try {
-      const query = 'SELECT nom,prenom,email,date_de_naissance,lieu_de_naissance,numero,create_at,update_at FROM utilisateur';
+      const query = 'SELECT id,nom,prenom,email,date_de_naissance,lieu_de_naissance,numero,create_at,update_at FROM utilisateur';
       const result = await pool.query(query);
       const type_fs = result.rows;
       res.status(200).json(type_fs);
