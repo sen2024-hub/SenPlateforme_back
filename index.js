@@ -16,9 +16,9 @@ app.use(cors());
 const pool = new Pool({
   host: 'localhost',
   user: 'postgres',
-  password: '2000',
+  password: '2006',
   database: 'projet1',
-  port: 5434
+  port: 5432
 });
 
 // Fonction pour obtenir la connexion à la base de données
