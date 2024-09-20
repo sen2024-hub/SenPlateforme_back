@@ -16,9 +16,9 @@ app.use(cors());
 const pool = new Pool({
   host: 'localhost',
   user: 'postgres',
-  password: '771817',
+  password: '2000',
   database: 'projet1',
-  port: 5432
+  port: 5434
 });
 
 // Fonction pour obtenir la connexion à la base de données
@@ -52,7 +52,7 @@ app.post('/signup', async (req, res) => {
   }
   
 });
-
+ 
 // Route d'enregistrement (signup) de l'administrateur
 app.post('/signupAdmin', async (req, res) => {
   const { nom, prenom,email,numero, password } = req.body;
@@ -256,6 +256,17 @@ app.delete('/users/:email', async (req, res) => {
     return res.status(500).json({ message: 'Erreur interne du serveur' });
   }
 });
+app.get('/classe', async (req, res) => {
+  try {
+      const query = 'SELECT id, libelle FROM classe'; // Assurez-vous d'interroger les bonnes colonnes
+      const result = await pool.query(query);
+      const classes = result.rows; // Renvoie les classes
+      res.status(200).json(classes);
+  } catch (error) {
+      console.error('Erreur lors de la récupération des classes:', error);
+      res.status(500).json({ message: 'Erreur interne du serveur' });
+  }
+});
 
 //inscription aux formations
 app.post('/formation', async (req, res) => {
@@ -362,6 +373,24 @@ app.get('/etudiants', async (req, res) => {
   } catch (err) {
       console.error(err);
       res.status(500).send('Erreur serveur');
+  }
+});
+
+// Route pour ajouter un étudiant à une formation
+
+app.post('/inscriptionFormation', async (req, res) => {
+  const { id_utilisateur, id_classe } = req.body;
+
+  if (!id_utilisateur || !id_classe) {
+      return res.status(400).json({ message: 'ID utilisateur et ID classe sont requis.' });
+  }
+
+  try {
+      const inscription = await Inscription.create({ id_utilisateur, id_classe });
+      return res.status(201).json({ message: 'Étudiant ajouté à la formation avec succès.', inscription });
+  } catch (error) {
+      console.error('Erreur lors de l\'ajout de l\'étudiant à la formation :', error);
+      return res.status(500).json({ message: 'Erreur lors de l\'ajout de l\'étudiant.' });
   }
 });
 // Route de connexion (login)
