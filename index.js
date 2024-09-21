@@ -111,6 +111,36 @@ res.status(500).json({ message: 'Erreur interne du serveur' });
 }
 });
 
+// Route pour récupérer les étudiants inscrits à une formation
+app.get('/api/formations/:id/etudiants', async (req, res) => {
+  const formationId = parseInt(req.params.id);
+  try {
+      const etudiants = await Inscription.findAll({
+          where: { formationId },
+          include: [{ model: Etudiant }]
+      });
+      res.json(etudiants.map(inscription => inscription.Etudiant));
+  } catch (error) {
+      res.status(500).send("Erreur lors de la récupération des étudiants");
+  }
+});
+
+// Route pour supprimer un étudiant
+app.delete('/api/etudiants/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+      // Supprimer l'inscription de l'étudiant
+      await Inscription.destroy({ where: { etudiantId: id } });
+      // Supprimer l'étudiant
+      await Etudiant.destroy({ where: { id } });
+      res.status(204).send();
+  } catch (error) {
+      console.error("Erreur lors de la suppression de l'étudiant:", error);
+      res.status(500).send("Erreur lors de la suppression");
+  }
+});
+
+
 //envoie des commentaires
 app.post('/comment', async (req, res) => {
   const { nom, prenom,email,objet, message} = req.body;
