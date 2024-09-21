@@ -12,6 +12,7 @@ app.use(cors());
 
 
 
+
 // Connexion à la base de données
 const pool = new Pool({
   host: 'localhost',
@@ -111,35 +112,39 @@ res.status(500).json({ message: 'Erreur interne du serveur' });
 }
 });
 
-// Route pour récupérer les étudiants inscrits à une formation
-app.get('/api/formations/:id/etudiants', async (req, res) => {
-  const formationId = parseInt(req.params.id);
-  try {
-      const etudiants = await Inscription.findAll({
-          where: { formationId },
-          include: [{ model: Etudiant }]
-      });
-      res.json(etudiants.map(inscription => inscription.Etudiant));
-  } catch (error) {
-      res.status(500).send("Erreur lors de la récupération des étudiants");
-  }
-});
+//suppression de l'etudiant d'une formation 
 
-// Route pour supprimer un étudiant
-app.delete('/api/etudiants/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
-  try {
-      // Supprimer l'inscription de l'étudiant
-      await Inscription.destroy({ where: { etudiantId: id } });
-      // Supprimer l'étudiant
-      await Etudiant.destroy({ where: { id } });
-      res.status(204).send();
-  } catch (error) {
-      console.error("Erreur lors de la suppression de l'étudiant:", error);
-      res.status(500).send("Erreur lors de la suppression");
-  }
-});
 
+
+// Route pour supprimer une inscription
+app.delete('/api/inscriptions', (req, res) => {
+    const { id_utilisateur, id_classe } = req.body;
+
+    console.log('id_utilisateur:', id_utilisateur);
+    console.log('id_classe:', id_classe);
+
+    const checkQuery = 'SELECT * FROM inscription WHERE id_utilisateur = $1 AND id_classe = $2';
+    
+    pool.query(checkQuery, [id_utilisateur, id_classe], (err, results) => {
+        if (err) {
+            console.error('Erreur de vérification:', err);
+            return res.status(500).json({ error: 'Erreur de la base de données' });
+        }
+        if (results.rows.length === 0) {
+            console.log('Aucune inscription trouvée pour cet étudiant.');
+            return res.status(404).json({ message: 'Étudiant non inscrit à cette formation.' });
+        }
+
+        const deleteQuery = 'DELETE FROM inscription WHERE id_utilisateur = $1 AND id_classe = $2';
+        pool.query(deleteQuery, [id_utilisateur, id_classe], (err) => {
+            if (err) {
+                console.error('Erreur de suppression:', err);
+                return res.status(500).json({ error: 'Échec de la suppression de l\'étudiant. Veuillez réessayer.' });
+            }
+            res.json({ message: 'Inscription supprimée avec succès' });
+        });
+    });
+});
 
 //envoie des commentaires
 app.post('/comment', async (req, res) => {
