@@ -170,7 +170,7 @@ app.post('/comment', async (req, res) => {
 });
 
 
-//gerer compte,on recupere les info de la personne connectee 
+//gerer compte,on recupere les info de la personne connectee chez l'administrateur
 app.get('/api/user/:id', async (req, res) => {
   const userId = req.params.id; // Récupérer l'ID depuis les paramètres de la requête
 
@@ -205,6 +205,57 @@ app.put('/api/user/:id', async (req, res) => {
       const result = await pool.query(
           'UPDATE administrateur SET nom = $1, prenom = $2, email = $3, numero = $4 WHERE id = $5',
           [nom, prenom, email, numero, userId]
+      );
+
+      if (result.rowCount === 0) {
+          return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      }
+
+      res.status(200).json({ message: 'Informations mises à jour avec succès' });
+  } catch (error) {
+      console.error('Erreur lors de la mise à jour de l\'utilisateur:', error);
+      res.status(500).json({ message: 'Erreur du serveur' });
+  }
+});
+
+//gerer compte,on recupere les info de la personne connectee chez l'utilisateur ou etudiant
+
+app.get('/api/utilisateur/:id', async (req, res) => { // Changement de '/user/' à '/utilisateur/'
+  const userId = req.params.id; // Récupérer l'ID depuis les paramètres de la requête
+
+  try {
+      // Requête pour récupérer les informations de l'utilisateur, incluant date_naissance et lieu_naissance
+      const result = await pool.query(
+          'SELECT nom, prenom, email, numero, date_de_naissance, lieu_de_naissance FROM utilisateur WHERE id = $1',
+          [userId]
+      );
+
+      const user = result.rows[0]; // Récupérer le premier utilisateur
+
+      if (!user) {
+          return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      }
+
+      res.json(user); // Retourner les informations de l'utilisateur
+  } catch (error) {
+      console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+      res.status(500).json({ message: 'Erreur du serveur' });
+  }
+});
+
+//modification
+app.put('/api/utilisateur/:id', async (req, res) => { // Changement de '/user/' à '/utilisateur/'
+  console.log('Requête PUT reçue pour l\'ID:', req.params.id); // Log de l'ID
+  const userId = req.params.id;
+  const { nom, prenom, email, numero, date_de_naissance, lieu_de_naissance } = req.body; // Inclure les nouveaux champs
+
+  // Log des données reçues
+  console.log('Données reçues:', req.body);
+
+  try {
+      const result = await pool.query(
+          'UPDATE utilisateur SET nom = $1, prenom = $2, email = $3, numero = $4, date_de_naissance = $5, lieu_de_naissance = $6 WHERE id = $7',
+          [nom, prenom, email, numero, date_de_naissance, lieu_de_naissance, userId] // Inclure les nouveaux champs dans la requête
       );
 
       if (result.rowCount === 0) {
