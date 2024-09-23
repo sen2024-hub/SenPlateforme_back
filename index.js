@@ -98,8 +98,12 @@ const isPasswordValid = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
 console.log('Mot de passe valide:', isPasswordValid); // Log la validité du mot de passe
 
 if (isPasswordValid) {
-const token = jwt.sign({ userId: user.id }, '77181753');
-res.json({ token, userId: user.id });
+  const token = jwt.sign({ userId: user.id, userName: user.nom }, '77181753');
+  const userId = user.id;
+  const userName = user.nom;
+  console.log(userId);
+  console.log(userName);
+  res.json({ token, userId, userName});
 } else {
 res.status(401).json({ message: 'Mot de passe incorrect' });
 }
@@ -111,10 +115,6 @@ console.error('Erreur:', error);
 res.status(500).json({ message: 'Erreur interne du serveur' });
 }
 });
-
-//suppression de l'etudiant d'une formation 
-
-
 
 // Route pour supprimer une inscription
 app.delete('/api/inscriptions', (req, res) => {
@@ -167,6 +167,55 @@ app.post('/comment', async (req, res) => {
     handleError(error, res);
   }
   
+});
+
+
+//gerer compte,on recupere les info de la personne connectee 
+app.get('/api/user/:id', async (req, res) => {
+  const userId = req.params.id; // Récupérer l'ID depuis les paramètres de la requête
+
+  try {
+      // Requête pour récupérer les informations de l'utilisateur
+      const result = await pool.query(
+          'SELECT nom, prenom, email, numero FROM administrateur WHERE id = $1',
+          [userId]
+      );
+
+      const user = result.rows[0]; // Récupérer le premier utilisateur
+
+      if (!user) {
+          return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      }
+
+      res.json(user); // Retourner les informations de l'utilisateur
+  } catch (error) {
+      console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+      res.status(500).json({ message: 'Erreur du serveur' });
+  }
+});
+app.put('/api/user/:id', async (req, res) => {
+  console.log('Requête PUT reçue pour l\'ID:', req.params.id); // Log de l'ID
+  const userId = req.params.id;
+  const { nom, prenom, email, numero } = req.body;
+
+  // Log des données reçues
+  console.log('Données reçues:', req.body);
+
+  try {
+      const result = await pool.query(
+          'UPDATE administrateur SET nom = $1, prenom = $2, email = $3, numero = $4 WHERE id = $5',
+          [nom, prenom, email, numero, userId]
+      );
+
+      if (result.rowCount === 0) {
+          return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      }
+
+      res.status(200).json({ message: 'Informations mises à jour avec succès' });
+  } catch (error) {
+      console.error('Erreur lors de la mise à jour de l\'utilisateur:', error);
+      res.status(500).json({ message: 'Erreur du serveur' });
+  }
 });
 //recuperation des classes
 app.get('/classe', async (req, res) => {
@@ -430,8 +479,8 @@ app.post('/inscriptionFormation', async (req, res) => {
 });
 // Route de connexion (login)
 app.post('/login', async (req, res) => {
+  console.log('Requête reçue sur /login', req.body);
   const { email, password } = req.body;
-
   try {
     const query = 'SELECT * FROM utilisateur WHERE email = $1';
     const { rows } = await pool.query(query, [email]);
@@ -447,8 +496,6 @@ app.post('/login', async (req, res) => {
         const userName = user.nom;
         console.log(userId);
         console.log(userName);
-        
-
         res.json({ token, userId, userName});
       } else {
         res.status(401).json({ message: 'Mot de passe incorrect' });
